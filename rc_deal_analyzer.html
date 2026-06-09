@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fix & Flip Deal Analyzer — Relational Capital</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #080d1a; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.card { background: #0d1526; border: 0.5px solid #1e293b; border-radius: 16px; padding: 32px; width: 100%; max-width: 560px; }
+.logo { font-size: 14px; font-weight: 600; color: #60a5fa; margin-bottom: 4px; }
+h1 { font-size: 20px; font-weight: 700; color: #f8fafc; margin-bottom: 4px; }
+.tagline { font-size: 13px; color: #475569; margin-bottom: 28px; }
+
+.form-group { margin-bottom: 16px; }
+label { font-size: 12px; font-weight: 500; color: #94a3b8; display: block; margin-bottom: 6px; }
+input { width: 100%; background: #111827; border: 0.5px solid #1e293b; border-radius: 8px; padding: 10px 14px; font-size: 14px; color: #f1f5f9; outline: none; transition: border-color 0.2s; }
+input:focus { border-color: #0052cc; }
+input::placeholder { color: #334155; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.btn { width: 100%; padding: 14px; background: #0052cc; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; color: #fff; cursor: pointer; margin-top: 8px; transition: background 0.2s; }
+.btn:hover { background: #0041a3; }
+.btn:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
+
+.results { display: none; margin-top: 24px; border-top: 0.5px solid #1e293b; padding-top: 24px; }
+.results.show { display: block; }
+.results-title { font-size: 14px; font-weight: 600; color: #f1f5f9; margin-bottom: 16px; }
+
+.metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.metric { background: #111827; border-radius: 10px; padding: 12px 14px; }
+.metric-label { font-size: 11px; color: #475569; margin-bottom: 4px; }
+.metric-val { font-size: 18px; font-weight: 700; }
+.metric-val.good { color: #10b981; }
+.metric-val.warn { color: #f59e0b; }
+.metric-val.bad { color: #ef4444; }
+
+.verdict { border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+.verdict.qualifies { background: rgba(16,185,129,0.08); border: 0.5px solid rgba(16,185,129,0.3); }
+.verdict.borderline { background: rgba(245,158,11,0.08); border: 0.5px solid rgba(245,158,11,0.3); }
+.verdict.doesnt { background: rgba(239,68,68,0.08); border: 0.5px solid rgba(239,68,68,0.3); }
+.verdict-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.verdict.qualifies .verdict-title { color: #10b981; }
+.verdict.borderline .verdict-title { color: #f59e0b; }
+.verdict.doesnt .verdict-title { color: #ef4444; }
+.verdict-desc { font-size: 12px; color: #94a3b8; line-height: 1.5; }
+
+.email-capture { background: #0a1f40; border: 1px solid #1d4ed8; border-radius: 10px; padding: 16px; display: none; }
+.email-capture.show { display: block; }
+.email-title { font-size: 13px; font-weight: 600; color: #93c5fd; margin-bottom: 4px; }
+.email-sub { font-size: 12px; color: #475569; margin-bottom: 12px; }
+.email-row { display: flex; gap: 8px; }
+.email-input { flex: 1; background: #111827; border: 0.5px solid #1e293b; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #f1f5f9; outline: none; }
+.email-input:focus { border-color: #0052cc; }
+.email-btn { padding: 10px 16px; background: #0052cc; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; color: #fff; cursor: pointer; white-space: nowrap; }
+.email-btn:hover { background: #0041a3; }
+
+.success-msg { display: none; text-align: center; padding: 16px; }
+.success-msg.show { display: block; }
+.success-icon { font-size: 32px; margin-bottom: 8px; }
+.success-title { font-size: 14px; font-weight: 600; color: #10b981; margin-bottom: 4px; }
+.success-desc { font-size: 12px; color: #64748b; }
+
+.disclaimer { font-size: 10px; color: #334155; margin-top: 16px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Relational Capital</div>
+  <h1>Fix & Flip Deal Analyzer</h1>
+  <p class="tagline">Enter your deal numbers — get instant analysis and loan qualification in seconds.</p>
+
+  <div class="grid-2">
+    <div class="form-group">
+      <label>Purchase Price</label>
+      <input type="number" id="purchase" placeholder="$250,000" min="0">
+    </div>
+    <div class="form-group">
+      <label>Rehab Budget</label>
+      <input type="number" id="rehab" placeholder="$45,000" min="0">
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="form-group">
+      <label>After Repair Value (ARV)</label>
+      <input type="number" id="arv" placeholder="$380,000" min="0">
+    </div>
+    <div class="form-group">
+      <label>Estimated Hold Time (months)</label>
+      <input type="number" id="hold" placeholder="6" min="1" max="24">
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>Your Experience Level</label>
+    <select id="experience" style="width:100%;background:#111827;border:0.5px solid #1e293b;border-radius:8px;padding:10px 14px;font-size:14px;color:#f1f5f9;outline:none;">
+      <option value="new">New investor (1–2 deals)</option>
+      <option value="experienced" selected>Experienced (3–10 deals)</option>
+      <option value="seasoned">Seasoned (10+ deals)</option>
+    </select>
+  </div>
+
+  <button class="btn" id="analyzeBtn" onclick="analyze()">Analyze My Deal →</button>
+
+  <div class="results" id="results">
+    <div class="results-title">Your Deal Analysis</div>
+
+    <div class="metric-grid">
+      <div class="metric">
+        <div class="metric-label">Loan Amount (estimated)</div>
+        <div class="metric-val good" id="loanAmount">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">LTV (Purchase)</div>
+        <div class="metric-val" id="ltv">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Total Cost Basis</div>
+        <div class="metric-val" id="totalCost">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Cost to ARV Ratio</div>
+        <div class="metric-val" id="costRatio">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Est. Interest Cost</div>
+        <div class="metric-val warn" id="interestCost">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Projected Net Profit</div>
+        <div class="metric-val" id="netProfit">—</div>
+      </div>
+    </div>
+
+    <div class="verdict" id="verdict">
+      <div class="verdict-title" id="verdictTitle">—</div>
+      <div class="verdict-desc" id="verdictDesc">—</div>
+    </div>
+
+    <div class="email-capture" id="emailCapture">
+      <div class="email-title">Get your full loan quote emailed to you</div>
+      <div class="email-sub">Enter your email and we'll send your personalized rate and term estimate within the hour.</div>
+      <div class="email-row">
+        <input type="email" class="email-input" id="emailInput" placeholder="your@email.com">
+        <button class="email-btn" onclick="submitLead()">Send My Quote →</button>
+      </div>
+    </div>
+
+    <div class="success-msg" id="successMsg">
+      <div class="success-icon">✓</div>
+      <div class="success-title">You'll hear from us within the hour.</div>
+      <div class="success-desc">Check your inbox for your personalized rate and term estimate. If your deal qualifies, we can have a pre-approval to you today.</div>
+    </div>
+
+    <p class="disclaimer">Analysis is for illustrative purposes. Actual loan terms depend on property location, borrower experience, credit, and deal specifics. Relational Capital | relationalcapital.com</p>
+  </div>
+</div>
+
+<script>
+let dealData = {};
+
+function fmt(n) {
+  return '$' + Math.round(n).toLocaleString();
+}
+
+function analyze() {
+  const purchase = parseFloat(document.getElementById('purchase').value) || 0;
+  const rehab = parseFloat(document.getElementById('rehab').value) || 0;
+  const arv = parseFloat(document.getElementById('arv').value) || 0;
+  const hold = parseFloat(document.getElementById('hold').value) || 6;
+  const experience = document.getElementById('experience').value;
+
+  if (!purchase || !rehab || !arv) {
+    alert('Please enter Purchase Price, Rehab Budget, and ARV to continue.');
+    return;
+  }
+
+  // RC lending math
+  const totalCost = purchase + rehab;
+  const ltv = (purchase / arv) * 100;
+  const costToARV = (totalCost / arv) * 100;
+  const loanAmount = Math.min(purchase * 0.90, arv * 0.75); // 90% of purchase or 75% ARV
+  const rate = experience === 'new' ? 0.12 : experience === 'experienced' ? 0.11 : 0.105;
+  const interestCost = loanAmount * rate * (hold / 12);
+  const closingCosts = loanAmount * 0.025; // ~2.5 points
+  const sellCosts = arv * 0.08; // selling costs ~8%
+  const netProfit = arv - totalCost - interestCost - closingCosts - sellCosts;
+  const roi = (netProfit / (totalCost - loanAmount)) * 100;
+
+  // Store for lead capture
+  dealData = { purchase, rehab, arv, hold, experience, loanAmount, netProfit, roi, ltv, costToARV };
+
+  // Set metrics
+  document.getElementById('loanAmount').textContent = fmt(loanAmount);
+  document.getElementById('ltv').textContent = ltv.toFixed(1) + '%';
+  document.getElementById('ltv').className = 'metric-val ' + (ltv <= 80 ? 'good' : ltv <= 90 ? 'warn' : 'bad');
+  document.getElementById('totalCost').textContent = fmt(totalCost);
+  document.getElementById('costRatio').textContent = costToARV.toFixed(1) + '%';
+  document.getElementById('costRatio').className = 'metric-val ' + (costToARV <= 70 ? 'good' : costToARV <= 80 ? 'warn' : 'bad');
+  document.getElementById('interestCost').textContent = fmt(interestCost);
+  document.getElementById('netProfit').textContent = fmt(netProfit);
+  document.getElementById('netProfit').className = 'metric-val ' + (netProfit > 30000 ? 'good' : netProfit > 10000 ? 'warn' : 'bad');
+
+  // Verdict
+  const verdict = document.getElementById('verdict');
+  const verdictTitle = document.getElementById('verdictTitle');
+  const verdictDesc = document.getElementById('verdictDesc');
+
+  if (costToARV <= 75 && ltv <= 90 && netProfit > 20000) {
+    verdict.className = 'verdict qualifies';
+    verdictTitle.textContent = '✓ This deal qualifies for RC financing';
+    verdictDesc.textContent = `Strong deal. Cost-to-ARV of ${costToARV.toFixed(1)}% is within our lending criteria and your projected profit of ${fmt(netProfit)} shows solid margin. We can have a pre-approval to you within 24 hours and close in as little as 10 days.`;
+  } else if (costToARV <= 82 && netProfit > 0) {
+    verdict.className = 'verdict borderline';
+    verdictTitle.textContent = '⚡ This deal may qualify — let's look closer';
+    verdictDesc.textContent = `Your numbers are borderline. Cost-to-ARV of ${costToARV.toFixed(1)}% is manageable and your projected profit of ${fmt(netProfit)} is workable. We'd want to review the property details and your experience. Enter your email and we'll give you a real answer within the hour.`;
+  } else {
+    verdict.className = 'verdict doesnt';
+    verdictTitle.textContent = '⚠ This deal is a stretch — here's why';
+    verdictDesc.textContent = `Cost-to-ARV of ${costToARV.toFixed(1)}% is above our threshold (75%) and projected profit of ${fmt(netProfit)} is thin after costs. This doesn't mean it's a bad deal — but you may need to renegotiate the purchase price or reduce rehab scope. Enter your email and let's talk through the numbers.`;
+  }
+
+  document.getElementById('results').classList.add('show');
+  document.getElementById('emailCapture').classList.add('show');
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function submitLead() {
+  const email = document.getElementById('emailInput').value;
+  if (!email || !email.includes('@')) {
+    alert('Please enter a valid email address.');
+    return;
+  }
+
+  // Post to your n8n inbound webhook
+  const webhookUrl = 'https://n8n-production-ba33.up.railway.app/webhook/rc-inbound-lead'; // Replace with your actual webhook URL
+
+  try {
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Deal Analyzer Lead',
+        email: email,
+        source: 'Deal Analyzer Tool',
+        loan_amount: dealData.loanAmount,
+        purchase_price: dealData.purchase,
+        rehab_budget: dealData.rehab,
+        arv: dealData.arv,
+        hold_time: dealData.hold,
+        experience: dealData.experience,
+        projected_profit: dealData.netProfit,
+        cost_to_arv: dealData.costToARV,
+        message: `Deal analyzer submission. Cost/ARV: ${dealData.costToARV?.toFixed(1)}%, Projected profit: $${Math.round(dealData.netProfit).toLocaleString()}`
+      })
+    });
+  } catch(e) {
+    // Fail silently — still show success to user
+    console.log('Webhook error:', e);
+  }
+
+  document.getElementById('emailCapture').style.display = 'none';
+  document.getElementById('successMsg').classList.add('show');
+}
+</script>
+</body>
+</html>
