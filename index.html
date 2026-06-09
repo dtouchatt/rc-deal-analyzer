@@ -425,9 +425,12 @@ async function submitForm() {
       derogatory: payload.derogatory,
       message: payload.message
     });
-    const img = new Image();
-    img.src = 'https://n8n-production-ba33.up.railway.app/webhook/rc-inbound-lead?' + params.toString();
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Fire webhook via hidden iframe to bypass CORS
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = 'https://n8n-production-ba33.up.railway.app/webhook/rc-inbound-lead?' + params.toString();
+    document.body.appendChild(iframe);
+    await new Promise(resolve => setTimeout(resolve, 2000));
   } catch(e) {
     // Fail silently and show success
   }
