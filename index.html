@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -235,7 +236,7 @@ async function submitLead() {
   }
 
   // Post to your n8n inbound webhook
-  const webhookUrl = 'YOUR_N8N_WEBHOOK_URL_HERE'; // Replace with your actual webhook URL
+  const webhookUrl = 'https://n8n-production-ba33.up.railway.app/webhook/rc-inbound-lead'; // Replace with your actual webhook URL
 
   try {
     await fetch(webhookUrl, {
