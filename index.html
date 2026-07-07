@@ -65,6 +65,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .conditional-field { display: none; }
 .conditional-field.show { display: flex; }
 
+.consent-row { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; margin-top: 16px; }
+.consent-row input[type="checkbox"] { margin-top: 3px; width: 16px; height: 16px; flex-shrink: 0; accent-color: #3b82f6; }
+.consent-row label { font-size: 12px; color: #94a3b8; line-height: 1.5; }
+
 .submit-section { text-align: center; margin-top: 24px; }
 .submit-btn {
   background: #0052cc;
@@ -83,6 +87,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .submit-btn:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
 
 .disclaimer { font-size: 11px; color: #334155; text-align: center; margin-top: 12px; line-height: 1.6; }
+
+.error-banner { display: none; background: #240a0a; border: 1px solid #ef4444; border-radius: 10px; padding: 14px 16px; margin-top: 16px; font-size: 13px; color: #fca5a5; line-height: 1.6; }
 
 .success { display: none; background: #0a1f0a; border: 1px solid #10b981; border-radius: 14px; padding: 32px; text-align: center; margin-top: 16px; }
 .success-icon { font-size: 40px; margin-bottom: 12px; }
@@ -205,7 +211,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           <label>Upload Your Contract (optional)</label>
           <div class="upload-area" onclick="document.getElementById('contractFile').click()">
             <input type="file" id="contractFile" accept=".pdf,.doc,.docx" onchange="showFileName(this)">
-            <label class="upload-label"><span>Click to upload</span> or drag and drop — PDF, DOC, DOCX</label>
+            <label class="upload-label"><span>Click to upload</span> or drag and drop — PDF, DOC, DOCX (max 5MB)</label>
             <div class="file-name" id="fileName"></div>
           </div>
         </div>
@@ -305,11 +311,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           <textarea id="message" placeholder="Example: 3bed/2bath single family in Cleveland. Needs full kitchen and bath remodel. Buying below market from motivated seller. Plan to flip within 4 months."></textarea>
         </div>
       </div>
+      <div class="consent-row">
+        <input type="checkbox" id="consent" required>
+        <label for="consent">I agree to be contacted by call, text, or email by Relational Capital regarding my loan inquiry. *</label>
+      </div>
     </div>
 
     <div class="submit-section">
       <button type="button" class="submit-btn" id="submitBtn" onclick="submitForm()">Submit My Deal</button>
       <p class="disclaimer">We typically respond within a few hours during business days. Your information is kept strictly confidential.</p>
+      <div class="error-banner" id="errorBanner"></div>
     </div>
 
   </form>
@@ -364,7 +375,29 @@ function showFileName(input) {
   }
 }
 
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(new Error('Could not read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function showError(msg) {
+  const banner = document.getElementById('errorBanner');
+  banner.textContent = msg;
+  banner.style.display = 'block';
+}
+
+function hideError() {
+  const banner = document.getElementById('errorBanner');
+  banner.style.display = 'none';
+}
+
 async function submitForm() {
+  hideError();
+
   const name = document.getElementById('name').value.trim();
   const email = document.getElementById('email').value.trim();
   const phone = document.getElementById('phone').value.trim();
@@ -379,11 +412,39 @@ async function submitForm() {
     return;
   }
 
+  if (!document.getElementById('consent').checked) {
+    alert('Please confirm you agree to be contacted about your loan inquiry.');
+    return;
+  }
+
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
   btn.textContent = 'Submitting...';
 
+  const submission_id = 'sub_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+
+  let contract_file_name = '';
+  let contract_file_base64 = '';
+  const fileInput = document.getElementById('contractFile');
+  if (fileInput.files && fileInput.files[0]) {
+    const file = fileInput.files[0];
+    if (file.size > 5 * 1024 * 1024) {
+      btn.disabled = false;
+      btn.textContent = 'Submit My Deal';
+      showError('That file is larger than 5MB. Please upload a smaller file, or leave it out and email it to us after submitting.');
+      return;
+    }
+    try {
+      contract_file_name = file.name;
+      contract_file_base64 = await fileToBase64(file);
+    } catch (e) {
+      contract_file_name = '';
+      contract_file_base64 = '';
+    }
+  }
+
   const payload = {
+    submission_id: submission_id,
     name: name,
     email: email,
     phone: phone,
@@ -402,42 +463,32 @@ async function submitForm() {
     owns_primary: document.getElementById('owns_primary').value,
     derogatory: document.getElementById('derogatory').value,
     construction_experience: document.getElementById('construction_experience').value,
-    message: document.getElementById('message').value
+    message: document.getElementById('message').value,
+    consent: true,
+    consent_timestamp: new Date().toISOString(),
+    contract_file_name: contract_file_name,
+    contract_file_base64: contract_file_base64
   };
 
   try {
-    const params = new URLSearchParams({
-      name: payload.name,
-      email: payload.email,
-      phone: payload.phone,
-      property_address: payload.property_address,
-      loan_type: payload.loan_type,
-      purchase_price: payload.purchase_price,
-      rehab_budget: payload.rehab_budget,
-      arv: payload.arv,
-      under_contract: payload.under_contract,
-      close_date: payload.close_date,
-      experience: payload.experience,
-      credit_score: payload.credit_score,
-      liquid_funds: payload.liquid_funds,
-      entity_type: payload.entity_type,
-      owns_primary: payload.owns_primary,
-      derogatory: payload.derogatory,
-      message: payload.message
+    const resp = await fetch('https://n8n-production-ba33.up.railway.app/webhook/rc-inbound-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
-    // Fire webhook via hidden iframe to bypass CORS
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = 'https://n8n-production-ba33.up.railway.app/webhook/rc-inbound-lead?' + params.toString();
-    document.body.appendChild(iframe);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-  } catch(e) {
-    // Fail silently and show success
-  }
 
-  document.getElementById('leadForm').style.display = 'none';
-  document.getElementById('successMsg').style.display = 'block';
-  document.getElementById('successMsg').scrollIntoView({ behavior: 'smooth' });
+    if (!resp.ok) {
+      throw new Error('Webhook responded with status ' + resp.status);
+    }
+
+    document.getElementById('leadForm').style.display = 'none';
+    document.getElementById('successMsg').style.display = 'block';
+    document.getElementById('successMsg').scrollIntoView({ behavior: 'smooth' });
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Submit My Deal';
+    showError('Something went wrong submitting your deal — please try again in a moment. If it keeps happening, email us directly at daniel@relationalcapital.com and we will get your deal started right away.');
+  }
 }
 </script>
 
